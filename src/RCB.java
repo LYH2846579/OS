@@ -16,6 +16,11 @@ public class RCB
 
     public RCB() {
     }
+    public RCB(int RID) {
+        this.RID = RID;
+        this.isFree = true;
+        this.blockedlist = new LinkedList<>();
+    }
     public RCB(int RID, boolean isFree, LinkedList<Integer> blockedlist) {
         this.RID = RID;
         this.isFree = isFree;

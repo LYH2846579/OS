@@ -28,12 +28,16 @@ public class PCB
     //优先级
     private int priority;
 
+    //设置进程运行时间
+    private int times;
+
 
     public PCB() {
     }
     public PCB(int ID) {
         this.ID = ID;
         this.MemoryState = false;
+        this.Memory = new LinkedList<>();
         this.resourcelistH = new LinkedList<>();
         this.resourcelistR = new LinkedList<>();
         this.state = "Ready";
@@ -43,10 +47,13 @@ public class PCB
         this.cpcb = null;
         //默认优先级为3
         this.priority = 3;
+        //默认执行三秒结束
+        this.times = 3;
     }
     public PCB(int ID, int priority) {
         this.ID = ID;
         this.MemoryState = false;
+        this.Memory = new LinkedList<>();
         this.resourcelistH = new LinkedList<>();
         this.resourcelistR = new LinkedList<>();
         this.state = "Ready";
@@ -55,6 +62,22 @@ public class PCB
         this.ppcb = null;
         this.cpcb = null;
         this.priority = priority;
+        //默认运行时间
+        this.times = 3;
+    }
+    public PCB(int ID, int priority, int times) {
+        this.ID = ID;
+        this.MemoryState = false;
+        this.Memory = new LinkedList<>();
+        this.resourcelistH = new LinkedList<>();
+        this.resourcelistR = new LinkedList<>();
+        this.state = "Ready";
+        //暂时不赋值
+        this.statelist = null;
+        this.ppcb = null;
+        this.cpcb = null;
+        this.priority = priority;
+        this.times = times;
     }
     public PCB(int ID, LinkedList<Integer> memory, boolean memoryState, LinkedList<Integer> resourcelistH, LinkedList<Integer> resourcelistR, String state, LinkedList<Process> statelist, PCB ppcb, PCB cpcb, int priority) {
         this.ID = ID;
@@ -129,27 +152,21 @@ public class PCB
     public void setPriority(int priority) {
         this.priority = priority;
     }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        PCB pcb = (PCB) o;
-        return ID == pcb.ID &&
-                MemoryState == pcb.MemoryState &&
-                priority == pcb.priority &&
-                Objects.equals(Memory, pcb.Memory) &&
-                Objects.equals(resourcelistH, pcb.resourcelistH) &&
-                Objects.equals(resourcelistR, pcb.resourcelistR) &&
-                Objects.equals(state, pcb.state) &&
-                Objects.equals(statelist, pcb.statelist) &&
-                Objects.equals(ppcb, pcb.ppcb) &&
-                Objects.equals(cpcb, pcb.cpcb);
+    public int getTimes() {
+        return times;
     }
-    @Override
-    public int hashCode() {
-        return Objects.hash(ID, Memory, MemoryState, resourcelistH, resourcelistR, state, statelist, ppcb, cpcb, priority);
+    public void setTimes(int times) {
+        this.times = times;
     }
 
-
+    @Override
+    public String toString() {
+        return "PCB{" +
+                "ID=" + ID +
+                ", Memory=" + Memory +
+                ", state='" + state + '\'' +
+                ", priority=" + priority +
+                ", times=" + times +
+                '}';
+    }
 }

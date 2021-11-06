@@ -37,6 +37,12 @@ public class Process
         return Objects.hash(pcb);
     }
 
+    @Override
+    public String toString() {
+        return "Process{" +
+                "pcb=" + pcb +
+                '}';
+    }
 
     //添加进程需要的资源id
     public void addSourceId(int id)
