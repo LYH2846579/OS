@@ -1,8 +1,6 @@
-import com.sun.xml.internal.bind.v2.model.core.ID;
+package exp2;
 
-import java.util.IdentityHashMap;
 import java.util.LinkedList;
-import java.util.Objects;
 
 /**
  * @author LYHstart
@@ -21,7 +19,7 @@ public class PCB
     private LinkedList<Integer> resourcelistR;     //未获取的资源列表
     //进程状态
     private String state;
-    private LinkedList<Process> statelist;
+    private LinkedList<Process> statelist;          //注意statelist的修改!!!
     //生成树
     private PCB ppcb;   //父进程指针
     private PCB cpcb;   //子进程指针
