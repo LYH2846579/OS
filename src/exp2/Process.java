@@ -49,7 +49,7 @@ public class Process
     public void addSourceId(int id)
     {
         //加入尚未获取的资源链表
-        this.pcb.getResourcelistR().offerLast(id);
+        this.pcb.getResourcelistR().offerFirst(id);     //必须进行头插
     }
     //删除对应的资源申请id
     public void delsourceId(int id)

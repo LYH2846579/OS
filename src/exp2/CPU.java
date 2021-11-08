@@ -24,7 +24,9 @@ public class CPU
         int priority;
         int rid;
         boolean scheduler = true;
+        boolean scheduler1 = true;
         int memory = 0;
+        int times = 0;
         //进入程序
         while(true)
         {
@@ -51,6 +53,7 @@ public class CPU
                         System.out.println("申请资源成功!");
                     break;
                 case 3:
+                    scheduler = true;
                     //首先必须对Runninglist有一个综合判断
                     if(ctrlBlock.getRunninglist().size() == 0)  //倘若没有资源正在运行，就需要先对进程执行资源调度
                     {
@@ -65,18 +68,32 @@ public class CPU
                             ctrlBlock.release();        //释放进程所需资源
                             ctrlBlock.scheduler();      //重新执行进程调度程序
                         }
-                        break;
+
                     }
+                    break;
                 case 4:
+                    //上来就让他默认为true
+                    scheduler = true;
+                    //判断是否有程序可以被执行
+                    if(ctrlBlock.getRunninglist().size() == 0)  //倘若没有资源正在运行，就需要先对进程执行资源调度
+                    {
+                        scheduler = ctrlBlock.scheduler();
+                    }
+                    //记录当前scheduler的值
+                    scheduler1 = scheduler;
                     //进入执行环节
-                    while(true)     //连续运行直到该进程执行结束
+                    while(scheduler)     //连续运行直到该进程执行结束
                     {
                         boolean b2 = ctrlBlock.runningCtrl();
                         if(b2)
                             break;
                     }
-                    ctrlBlock.release();
-                    ctrlBlock.scheduler();
+                    if(scheduler1)      //倘若执行了才能去释放和调度
+                    {
+                        System.out.println("前序程序已运行完毕!");
+                        ctrlBlock.release();
+                        ctrlBlock.scheduler();
+                    }
                     break;
                 case 5:
                     ctrlBlock.printProcess();
@@ -104,6 +121,12 @@ public class CPU
                         System.out.println("创建资源成功!");
                     break;
                 case 12:
+                    System.out.println("请输入要修改的进程PID:");
+                    pid = scan.nextInt();
+                    System.out.println("请输入要修改的时间:");
+                    times = scan.nextInt();
+                    ctrlBlock.setTimes(pid,times);
+                    System.out.println("运行时间设置成功!");
                     break;
                 case 13:
                     System.out.println("请输入申请内存的进程PID:");
@@ -133,7 +156,7 @@ public class CPU
         System.out.println("*  [5] printProcess          [6] printRunninglist   *");
         System.out.println("*  [7] printReadylist        [8] printBlockedlist   *");
         System.out.println("*  [9] printSuspendlist     [10] printDonelist      *");
-        System.out.println("* [11] createResource       [12]                    *");
+        System.out.println("* [11] createResource       [12] setTimes           *");
         System.out.println("* [13] MemoryReq            [14] exit_system        *");
         System.out.println("*****************************************************");
         System.out.println("请输入您的选择:");

@@ -184,12 +184,32 @@ public class CtrlBlock
             process.getPcb().setState("Suspend");       //-> 释放其内存
             //从原序列中将进程移出
             LinkedList<Process> statelist = process.getPcb().getStatelist();
+            statelist.remove(process);
             //需要针对Readylist单独处理
             //if(statelist.equals(this.))
             //修改序列指针
             process.getPcb().setStatelist(this.suspendlist);
-            //将该进程加入新的序列之中
+            //将该进程加入阻塞队列之中
             this.suspendlist.offerLast(process);
+
+            //为了尽可能使得资源得到有效利用且尽可能避免死锁的情况发生，要将将要被挂起的进程的所拥有的所有资源进行释放!
+            //1.首先将其拥有的资源记录下来 ->　释放与分配等下几步处理   --> 考虑唤醒的情况
+            for(Integer integer:process.getPcb().getResourcelistH())
+            {
+                process.getPcb().getResourcelistR().offerFirst(integer);
+                //将资源对应的状态及队列进行修改
+                Resource resource = this.resourcelist.get(integer);
+                resource.getRcb().setFree(true);
+                //修改busylist和freelist
+                this.busylist.remove(resource);
+                this.freelist.offerLast(resource);
+                //等待进一步的资源分配 -> 首先实现一个分配方法
+            }
+            //全部清空
+            process.getPcb().getResourcelistH().remove();
+            //分配闲置的资源
+            this.redOfRes();
+
             //释放内存资源 -> 并将其加入序列
             LinkedList<Integer> memory = process.getPcb().getMemory();
             int sum = 0;
@@ -200,6 +220,50 @@ public class CtrlBlock
             //清空memory
             process.getPcb().getMemory().remove();
             return false;
+        }
+    }
+
+    //资源分配方法 ->用于处理挂起与死锁的时候的资源重新分配问题
+    public void redOfRes()        //redistribution of resources
+    {
+        //遍历freelist,分析每一个资源是否有被其阻塞的进程，倘若有，则将其分配给该进程 -> 注意，该进程的状态必须是Blocked
+        //并判断该进程的状态是否会发生改变
+        //经过思路演变，被阻塞的进程必然是处于Blockedlist中的进程，不可能处于挂起状态!
+        //增加一个临时的辅助链表
+        LinkedList<Resource> delList = new LinkedList<>();
+        for(Resource resource:freelist)
+        {
+            if(resource.getRcb().getBlockedlist().size() != 0)
+            {
+                //获取该进程
+                Process process = this.processlist.get(resource.getRcb().getBlockedlist().get(0));
+                //
+                //for循环在执行的过程之中操作的对象不允许被修改!         --> 有无好的解决方案?
+                //将该资源RID加入辅助链表中 -> 等待被加入busylist
+                delList.offerLast(resource);
+                //修改process的资源列表
+                process.getPcb().getResourcelistR().remove(new Integer(resource.getRcb().getRID()));
+                process.getPcb().getResourcelistH().offerLast(new Integer(resource.getRcb().getRID()));
+
+                //判断该资源是否可以加入Readylist中
+                if(process.getPcb().getResourcelistR().size() == 0)
+                {
+                    //从Blockedlist中移出
+                    this.blockedlist.remove(process);
+                    //倘若待申请的资源数目为0 -> 加入Readylist
+                    this.readylist.get(process.getPcb().getPriority()).offerLast(process);
+                    //修改Process属性
+                    process.getPcb().setState("Ready");
+                    process.getPcb().setStatelist(this.readylist.get(process.getPcb().getPriority()));
+                }
+            }
+        }
+        //接下来将辅助链表中的资源属性进行处理
+        for(Resource resource:delList)
+        {
+            this.freelist.remove(resource);
+            resource.getRcb().setFree(false);
+            this.busylist.offerLast(resource);
         }
     }
 
@@ -242,11 +306,28 @@ public class CtrlBlock
 
     }
 
+    //修改运行时间
+    public void setTimes(int pid,int times)
+    {
+        //获取进程
+        Process process = this.processlist.get(pid);
+        //设置进程运行时间
+        process.getPcb().setTimes(times);
+    }
+
     //申请内存
     public boolean memoryReq(int pid,int memorySize)
     {
         //获取Process
         Process process = this.processlist.get(pid);
+
+        //加一个进程状态判断         -> 解决运行完毕仍申请资源的问题
+        if(process.getPcb().getState().equals("Done"))
+        {
+            System.out.println("该进程已经运行完毕!无法申请内存");
+            return false;
+        }
+
         //申请内存
         boolean b = this.MemoryMelloc(process, memorySize);
         return b;
@@ -259,6 +340,20 @@ public class CtrlBlock
         //而这里请求资源又需要Process对象作为参数去申请 -> 处理方案为传入一个process对象对应的PID
         //在链表中寻找到该PID对应的Process
         Process process = this.processlist.get(Pid);
+
+        //加一个进程状态判断
+        if(process.getPcb().getState().equals("Done"))
+        {
+            System.out.println("该进程已经运行完毕!无法申请资源");
+            return false;
+        }
+        //加一个防止空指针异常的判断
+        if(process == null)
+        {
+            System.out.println("指定的进程不存在!");
+            return false;
+        }
+
 
         //必须判断是否存在该资源id
         int flag = 0;
@@ -368,8 +463,6 @@ public class CtrlBlock
             else    //不可达状态
                 return false;
 
-
-
         }
     }
 
@@ -384,7 +477,7 @@ public class CtrlBlock
         //判断其申请的资源是否都处于free状态的标识位
         int flag = -1;
         //开始扫描
-        for(Integer integer:resourcelistR)        //一般动态申请只会有一个申请资源的请求
+        for(Integer integer:resourcelistR)        //一般动态申请只会有一个申请资源的请求 -> 这可不一定!
         {
             //初始化标识位
             flag  = -1;
@@ -453,6 +546,10 @@ public class CtrlBlock
                 System.out.println("所申请的资源不存在!");
                 return false;
             }
+
+
+            //就让他执行一次!
+            break;
 
         }
         if(flag == 1)
@@ -531,6 +628,12 @@ public class CtrlBlock
             return false;
     }
 
+    //死锁校验模块
+    public void dealDeadLock()
+    {
+
+    }
+
 
     //进程运行完毕控制单元
     public boolean release()
@@ -546,7 +649,7 @@ public class CtrlBlock
         //-> 倘若还被其他资源所阻塞，则从这个资源的阻塞进程列表中删除
         //将该进程从对应的Processlist中删除
         //this.processlist.remove(process);
-        this.processlist.remove(process.getPcb().getID(),process);
+        //this.processlist.remove(process.getPcb().getID(),process);            //->这里最好还是保留着
         //修改状态
         process.getPcb().setState("Done");
         //将该进程加入已经执行完毕的列表之中
@@ -554,7 +657,7 @@ public class CtrlBlock
 
         //释放对应的资源
         LinkedList<Integer> resourcelistH = process.getPcb().getResourcelistH();
-        for(Integer integer:resourcelistH)
+        for(Integer integer:resourcelistH)          //ConcurrentModificationException
         {
             Resource resourceTag = null;
             //在busylist中删除对应的资源
@@ -570,7 +673,7 @@ public class CtrlBlock
                     {
                         //没有因为该资源阻塞的进程 -> 释放资源
                         resource1.getRcb().setFree(true);
-                        resourceTag = resource1;
+                        resourceTag = resource1;            //->等待后期从busylist中取出将其加入freelist
 
                         //仍然不可以在迭代的时候对链表进行增删!
                         //this.freelist.offerLast(resource1);
@@ -585,43 +688,43 @@ public class CtrlBlock
                     Process process1 = this.processlist.get(integer1);
 
                     //?
-                    LinkedList<Process> blockedlist1 = this.blockedlist;
+                    //LinkedList<Process> blockedlist1 = this.blockedlist;
 
                     //同样设置标志位来判断是否可以将其加入Readylist之中
                     int flag = 0;
 
                     //for(Process process1:blockedlist1)
+                    if(process1.getPcb().getID() == integer1)           //->一定会成功
                     {
-                        if(process1.getPcb().getID() == integer1)           //->一定会成功
+                        //获取到该进程之后 -> 将该资源加入其拥有的资源列表
+                        //同样的问题? -> 当然不是 --> 一定看清楚是哪一个进程!!!
+                        process1.getPcb().getResourcelistR().remove(new Integer(resource1.getRcb().getRID()));
+                        process1.getPcb().getResourcelistH().offerLast(resource1.getRcb().getRID());
+
+
+                        //判断是否可以进入Readylist
+                        if(process1.getPcb().getResourcelistR().size() == 0)
                         {
-                            //获取到该进程之后 -> 将该资源加入其拥有的资源列表
-                            //同样的问题? -> 当然不是 --> 一定看清楚是哪一个进程!!!
-                            process1.getPcb().getResourcelistR().remove(new Integer(resource1.getRcb().getRID()));
-                            process1.getPcb().getResourcelistH().offerLast(resource1.getRcb().getRID());
-
-
-                            //判断是否可以进入Readylist
-                            if(process1.getPcb().getResourcelistR().size() == 0)
-                            {
-                                //所需的资源序列为0 -> 加入Readylist之中
-                                //this.readylist.get(process1.getPcb().getPriority()).offerLast(process1);
-                                //将标志位置1
-                                flag =1;
-                                //此时需要采取如下措施
-                                //1、将该资源序列的阻塞列表中的该进程删除
-                                //2、将该进程从原来的阻塞队列中删除并将其放置在Readylist之中
-                                //3、将该进程的状态修改为Ready
-                            }
-                            //将标志位置2
+                            //所需的资源序列为0 -> 加入Readylist之中
+                            //this.readylist.get(process1.getPcb().getPriority()).offerLast(process1);
+                            //将标志位置1
+                            flag =1;
                             //此时需要采取如下措施
                             //1、将该资源序列的阻塞列表中的该进程删除
-                            //2、仍然保持该序列在阻塞列表中
-                            else
-                                flag = 2;
-
-                            //倘若不为零 -> 放Blockedlist中呆着ba
+                            //2、将该进程从原来的阻塞队列中删除并将其放置在Readylist之中
+                            //3、将该进程的状态修改为Ready
                         }
+                        //将标志位置2
+                        //此时需要采取如下措施
+                        //1、将该资源序列的阻塞列表中的该进程删除
+                        //2、仍然保持该序列在阻塞列表中
+                        else
+                            flag = 2;
+
+                        //倘若不为零 -> 放Blockedlist中呆着ba
                     }
+
+
 
                     //根据标志位作出处理
                     if(flag == 1)
@@ -646,7 +749,7 @@ public class CtrlBlock
             if(resourceTag != null)
             {
                 this.freelist.offerLast(resourceTag);
-                busylist.remove(resourceTag);
+                this.busylist.remove(resourceTag);
             }
         }
 
@@ -804,6 +907,7 @@ public class CtrlBlock
         this.processlist.forEach((key,value) ->{
             System.out.println(value);
         });
+        System.out.println("================================");
     }
 
     //打印被挂起的进程
@@ -813,6 +917,7 @@ public class CtrlBlock
         this.suspendlist.forEach(process ->{
             System.out.println(process);
         });
+        System.out.println("================================");
     }
 
 }

@@ -17,5 +17,8 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="Java EE 6-Java EE 6" level="project" />
+    <orderEntry type="library" name="mail" level="project" />
+    <orderEntry type="library" name="activation" level="project" />
   </component>
 </module>
