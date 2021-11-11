@@ -341,18 +341,20 @@ public class CtrlBlock
         //在链表中寻找到该PID对应的Process
         Process process = this.processlist.get(Pid);
 
+        //加一个防止空指针异常的判断 -> 必须在进程状态判断之前!
+        if(process == null)
+        {
+            System.out.println("指定的进程不存在!");
+            return false;
+        }
+
         //加一个进程状态判断
         if(process.getPcb().getState().equals("Done"))
         {
             System.out.println("该进程已经运行完毕!无法申请资源");
             return false;
         }
-        //加一个防止空指针异常的判断
-        if(process == null)
-        {
-            System.out.println("指定的进程不存在!");
-            return false;
-        }
+
 
 
         //必须判断是否存在该资源id
@@ -628,9 +630,23 @@ public class CtrlBlock
             return false;
     }
 
-    //死锁校验模块
-    public void dealDeadLock()
+    //死锁校验模块    //当当前无进程正在执行的时候，但是Blockedlist中存在进程的时候进行调度
+    public boolean dealDeadLock()
     {
+        //首先进行死锁判断 -> 在该方法被调用之前，一定是scheduler方法被调用之后返回值为false
+        //接下来对Blockedlist进行检查
+        if(this.blockedlist.size() == 0)
+        {
+            //此时是真的被执行完毕了
+            return true;
+        }
+        else
+        {
+            //此时为存在被阻塞的进程，选取其中优先级最低的第一个进程并释放
+
+
+            return false;
+        }
 
     }
 

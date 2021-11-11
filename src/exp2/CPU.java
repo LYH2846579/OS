@@ -66,7 +66,12 @@ public class CPU
                         if(b1)
                         {
                             ctrlBlock.release();        //释放进程所需资源
-                            ctrlBlock.scheduler();      //重新执行进程调度程序
+                            boolean scheduler2 = ctrlBlock.scheduler();//重新执行进程调度程序
+                            //倘若调度失败，则进入死锁判断程序
+                            if(!scheduler2)
+                            {
+                                //
+                            }
                         }
 
                     }
